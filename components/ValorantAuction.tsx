@@ -251,13 +251,15 @@ export default function ValorantAuction() {
     };
   }, [loadData]);
 
-  // 자동 새로고침 (Realtime으로 대체되었지만 호환성을 위해 유지)
+  // 자동 새로고침 (Realtime이 있으므로 비활성화)
+  // Realtime이 제대로 작동하면 1초마다 새로고침할 필요 없음
   useEffect(() => {
     if (!autoRefresh || phase !== 'auction') return;
 
+    // 3초마다로 간격 늘림 (Realtime이 메인)
     const interval = setInterval(() => {
       loadData();
-    }, 1000);
+    }, 3000);
 
     return () => clearInterval(interval);
   }, [autoRefresh, phase, loadData]);
@@ -273,15 +275,25 @@ export default function ValorantAuction() {
       setTimeLeft(remaining);
 
       if (remaining <= 0) {
+        // 타이머 비활성화하여 중복 실행 방지
+        setTimerActive(false);
         handleAutoSell();
       }
     }, 100);
 
     return () => clearInterval(interval);
-  }, [timerActive, lastBidTime]);
+  }, [timerActive, lastBidTime]); // handleAutoSell 제거하여 무한 루프 방지
 
   // 자동 낙찰/유찰
   const handleAutoSell = async () => {
+    // 중복 실행 방지: 타이머가 이미 비활성화되었으면 실행 안 함
+    if (!timerActive) {
+      console.log('⚠️ 타이머가 이미 비활성화됨, 중복 실행 방지');
+      return;
+    }
+
+    console.log('⏰ 타이머 종료, 자동 처리 시작');
+
     if (bidder) {
       await sellPlayer();
     } else {
