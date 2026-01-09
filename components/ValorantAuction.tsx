@@ -1,34 +1,64 @@
-'use client'
+'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Users, Trophy, DollarSign, Gavel, Plus, Trash2, RefreshCw, Clock } from 'lucide-react';
+import {
+  Users,
+  Trophy,
+  DollarSign,
+  Gavel,
+  Plus,
+  Trash2,
+  RefreshCw,
+  Clock,
+} from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 const AUCTION_STATE_KEY = 'auction-state';
 
+// 타입 정의
+interface Player {
+  name: string;
+  tier: string;
+  agents?: string[];
+  comment?: string;
+  sold: boolean;
+  price: number;
+  team: string | null;
+}
+
+interface Team {
+  name: string;
+  budget: number;
+  players: Player[];
+}
+
+interface CustomBidAmount {
+  [key: string]: string;
+}
+
 export default function ValorantAuction() {
-  const [phase, setPhase] = useState('setup');
-  const [players, setPlayers] = useState([]);
-  const [teams, setTeams] = useState([]);
-  const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
-  const [currentBid, setCurrentBid] = useState(0);
-  const [bidder, setBidder] = useState('');
-  const [newPlayerName, setNewPlayerName] = useState('');
-  const [newPlayerTier, setNewPlayerTier] = useState('');
-  const [newPlayerAgent1, setNewPlayerAgent1] = useState('');
-  const [newPlayerAgent2, setNewPlayerAgent2] = useState('');
-  const [newPlayerAgent3, setNewPlayerAgent3] = useState('');
-  const [newPlayerComment, setNewPlayerComment] = useState('');
-  const [newTeamName, setNewTeamName] = useState('');
-  const [budgetPerTeam, setBudgetPerTeam] = useState('');
-  const [customBidAmount, setCustomBidAmount] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [autoRefresh, setAutoRefresh] = useState(true);
-  const [timeLeft, setTimeLeft] = useState(15);
-  const [timerActive, setTimerActive] = useState(false);
-  const [lastBidTime, setLastBidTime] = useState(null);
-  const [unsoldPlayers, setUnsoldPlayers] = useState([]);
-  const [isResale, setIsResale] = useState(false);
+  const [phase, setPhase] = useState<string>('setup');
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [currentPlayerIndex, setCurrentPlayerIndex] = useState<number>(0);
+  const [currentBid, setCurrentBid] = useState<number>(0);
+  const [bidder, setBidder] = useState<string>('');
+  const [newPlayerName, setNewPlayerName] = useState<string>('');
+  const [newPlayerTier, setNewPlayerTier] = useState<string>('');
+  const [newPlayerAgent1, setNewPlayerAgent1] = useState<string>('');
+  const [newPlayerAgent2, setNewPlayerAgent2] = useState<string>('');
+  const [newPlayerAgent3, setNewPlayerAgent3] = useState<string>('');
+  const [newPlayerComment, setNewPlayerComment] = useState<string>('');
+  const [newTeamName, setNewTeamName] = useState<string>('');
+  const [budgetPerTeam, setBudgetPerTeam] = useState<number | string>('');
+  const [customBidAmount, setCustomBidAmount] = useState<CustomBidAmount>({});
+  const [loading, setLoading] = useState<boolean>(true);
+  const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
+  const [timeLeft, setTimeLeft] = useState<number>(15);
+  const [timerActive, setTimerActive] = useState<boolean>(false);
+  const [lastBidTime, setLastBidTime] = useState<number | null>(null);
+  const [unsoldPlayers, setUnsoldPlayers] = useState<Player[]>([]);
+  const [isResale, setIsResale] = useState<boolean>(false);
 
   // Supabase에서 데이터 로드
   const loadData = useCallback(async () => {
@@ -39,13 +69,15 @@ export default function ValorantAuction() {
         .eq('key', AUCTION_STATE_KEY)
         .single();
 
-      if (error && error.code !== 'PGRST116') { // PGRST116은 데이터 없음 에러
+      if (error && error.code !== 'PGRST116') {
+        // PGRST116은 데이터 없음 에러
         console.error('데이터 로드 에러:', error);
         return;
       }
 
       if (data && data.value) {
-        const parsedData = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+        const parsedData =
+          typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
         setPhase(parsedData.phase || 'setup');
         setPlayers(parsedData.players || []);
         setTeams(parsedData.teams || []);
@@ -66,39 +98,78 @@ export default function ValorantAuction() {
   }, []);
 
   // Supabase에 데이터 저장
-  const saveData = useCallback(async (updatedData: any) => {
-    try {
-      const data = {
-        phase: updatedData.phase !== undefined ? updatedData.phase : phase,
-        players: updatedData.players !== undefined ? updatedData.players : players,
-        teams: updatedData.teams !== undefined ? updatedData.teams : teams,
-        currentPlayerIndex: updatedData.currentPlayerIndex !== undefined ? updatedData.currentPlayerIndex : currentPlayerIndex,
-        currentBid: updatedData.currentBid !== undefined ? updatedData.currentBid : currentBid,
-        bidder: updatedData.bidder !== undefined ? updatedData.bidder : bidder,
-        budgetPerTeam: updatedData.budgetPerTeam !== undefined ? updatedData.budgetPerTeam : budgetPerTeam,
-        lastBidTime: updatedData.lastBidTime !== undefined ? updatedData.lastBidTime : lastBidTime,
-        timerActive: updatedData.timerActive !== undefined ? updatedData.timerActive : timerActive,
-        unsoldPlayers: updatedData.unsoldPlayers !== undefined ? updatedData.unsoldPlayers : unsoldPlayers,
-        isResale: updatedData.isResale !== undefined ? updatedData.isResale : isResale,
-      };
+  const saveData = useCallback(
+    async (updatedData: any) => {
+      try {
+        const data = {
+          phase: updatedData.phase !== undefined ? updatedData.phase : phase,
+          players:
+            updatedData.players !== undefined ? updatedData.players : players,
+          teams: updatedData.teams !== undefined ? updatedData.teams : teams,
+          currentPlayerIndex:
+            updatedData.currentPlayerIndex !== undefined
+              ? updatedData.currentPlayerIndex
+              : currentPlayerIndex,
+          currentBid:
+            updatedData.currentBid !== undefined
+              ? updatedData.currentBid
+              : currentBid,
+          bidder:
+            updatedData.bidder !== undefined ? updatedData.bidder : bidder,
+          budgetPerTeam:
+            updatedData.budgetPerTeam !== undefined
+              ? updatedData.budgetPerTeam
+              : budgetPerTeam,
+          lastBidTime:
+            updatedData.lastBidTime !== undefined
+              ? updatedData.lastBidTime
+              : lastBidTime,
+          timerActive:
+            updatedData.timerActive !== undefined
+              ? updatedData.timerActive
+              : timerActive,
+          unsoldPlayers:
+            updatedData.unsoldPlayers !== undefined
+              ? updatedData.unsoldPlayers
+              : unsoldPlayers,
+          isResale:
+            updatedData.isResale !== undefined
+              ? updatedData.isResale
+              : isResale,
+        };
 
-      const { error } = await supabase
-        .from('auction_state')
-        .upsert({
-          key: AUCTION_STATE_KEY,
-          value: data,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'key'
-        });
+        const { error } = await supabase.from('auction_state').upsert(
+          {
+            key: AUCTION_STATE_KEY,
+            value: data,
+            updated_at: new Date().toISOString(),
+          },
+          {
+            onConflict: 'key',
+          }
+        );
 
-      if (error) {
+        if (error) {
+          console.error('저장 실패:', error);
+        }
+      } catch (error) {
         console.error('저장 실패:', error);
       }
-    } catch (error) {
-      console.error('저장 실패:', error);
-    }
-  }, [phase, players, teams, currentPlayerIndex, currentBid, bidder, budgetPerTeam, lastBidTime, timerActive, unsoldPlayers, isResale]);
+    },
+    [
+      phase,
+      players,
+      teams,
+      currentPlayerIndex,
+      currentBid,
+      bidder,
+      budgetPerTeam,
+      lastBidTime,
+      timerActive,
+      unsoldPlayers,
+      isResale,
+    ]
+  );
 
   // 초기 로드 및 Realtime 구독
   useEffect(() => {
@@ -113,15 +184,16 @@ export default function ValorantAuction() {
           event: '*',
           schema: 'public',
           table: 'auction_state',
-          filter: `key=eq.${AUCTION_STATE_KEY}`
+          filter: `key=eq.${AUCTION_STATE_KEY}`,
         },
         (payload) => {
           const newRecord = payload.new as { value?: any } | null;
           if (newRecord && newRecord.value) {
-            const parsedData = typeof newRecord.value === 'string' 
-              ? JSON.parse(newRecord.value) 
-              : newRecord.value;
-            
+            const parsedData =
+              typeof newRecord.value === 'string'
+                ? JSON.parse(newRecord.value)
+                : newRecord.value;
+
             setPhase(parsedData.phase || 'setup');
             setPlayers(parsedData.players || []);
             setTeams(parsedData.teams || []);
@@ -146,7 +218,7 @@ export default function ValorantAuction() {
   // 자동 새로고침 (Realtime으로 대체되었지만 호환성을 위해 유지)
   useEffect(() => {
     if (!autoRefresh || phase !== 'auction') return;
-    
+
     const interval = setInterval(() => {
       loadData();
     }, 1000);
@@ -161,7 +233,7 @@ export default function ValorantAuction() {
     const interval = setInterval(() => {
       const elapsed = Math.floor((Date.now() - lastBidTime) / 1000);
       const remaining = 15 - elapsed;
-      
+
       setTimeLeft(remaining);
 
       if (remaining <= 0) {
@@ -185,11 +257,14 @@ export default function ValorantAuction() {
   const addTeam = async () => {
     if (newTeamName.trim()) {
       const budget = budgetPerTeam === '' ? 1000 : Number(budgetPerTeam);
-      const updatedTeams = [...teams, { 
-        name: newTeamName, 
-        budget: budget, 
-        players: [] 
-      }];
+      const updatedTeams: Team[] = [
+        ...teams,
+        {
+          name: newTeamName,
+          budget: budget,
+          players: [],
+        },
+      ];
       setTeams(updatedTeams);
       await saveData({ teams: updatedTeams });
       setNewTeamName('');
@@ -206,15 +281,20 @@ export default function ValorantAuction() {
   // 선수 추가
   const addPlayer = async () => {
     if (newPlayerName.trim() && newPlayerTier.trim()) {
-      const updatedPlayers = [...players, { 
-        name: newPlayerName, 
-        tier: newPlayerTier,
-        agents: [newPlayerAgent1, newPlayerAgent2, newPlayerAgent3].filter(a => a.trim()),
-        comment: newPlayerComment,
-        sold: false,
-        price: 0,
-        team: null
-      }];
+      const updatedPlayers: Player[] = [
+        ...players,
+        {
+          name: newPlayerName,
+          tier: newPlayerTier,
+          agents: [newPlayerAgent1, newPlayerAgent2, newPlayerAgent3].filter(
+            (a) => a.trim()
+          ),
+          comment: newPlayerComment,
+          sold: false,
+          price: 0,
+          team: null,
+        },
+      ];
       setPlayers(updatedPlayers);
       await saveData({ players: updatedPlayers });
       setNewPlayerName('');
@@ -239,7 +319,10 @@ export default function ValorantAuction() {
     if (newIndex < 0 || newIndex >= players.length) return;
 
     const updatedPlayers = [...players];
-    [updatedPlayers[index], updatedPlayers[newIndex]] = [updatedPlayers[newIndex], updatedPlayers[index]];
+    [updatedPlayers[index], updatedPlayers[newIndex]] = [
+      updatedPlayers[newIndex],
+      updatedPlayers[index],
+    ];
     setPlayers(updatedPlayers);
     await saveData({ players: updatedPlayers });
   };
@@ -251,11 +334,11 @@ export default function ValorantAuction() {
       setCurrentBid(0);
       setTimerActive(false);
       setLastBidTime(null);
-      await saveData({ 
-        phase: 'auction', 
+      await saveData({
+        phase: 'auction',
         currentBid: 0,
         timerActive: false,
-        lastBidTime: null
+        lastBidTime: null,
       });
     }
   };
@@ -268,15 +351,15 @@ export default function ValorantAuction() {
     setTimeLeft(15);
     await saveData({
       timerActive: true,
-      lastBidTime: now
+      lastBidTime: now,
     });
   };
 
   // 입찰
   const placeBid = async (teamName: string, amount: number) => {
     if (!timerActive) return;
-    
-    const team = teams.find((t: any) => t.name === teamName);
+
+    const team = teams.find((t) => t.name === teamName);
     if (team && team.budget >= amount && amount > currentBid) {
       const now = Date.now();
       setCurrentBid(amount);
@@ -284,11 +367,11 @@ export default function ValorantAuction() {
       setLastBidTime(now);
       setTimerActive(true);
       setTimeLeft(15);
-      await saveData({ 
-        currentBid: amount, 
+      await saveData({
+        currentBid: amount,
         bidder: teamName,
         lastBidTime: now,
-        timerActive: true
+        timerActive: true,
       });
     }
   };
@@ -306,20 +389,20 @@ export default function ValorantAuction() {
   const sellPlayer = async () => {
     if (bidder && currentPlayerIndex < players.length) {
       const updatedPlayers = [...players];
-      const soldPlayer = {
+      const soldPlayer: Player = {
         ...updatedPlayers[currentPlayerIndex],
         sold: true,
         price: currentBid,
-        team: bidder
+        team: bidder,
       };
       updatedPlayers[currentPlayerIndex] = soldPlayer;
 
-      const updatedTeams = teams.map((team: any) => {
+      const updatedTeams = teams.map((team) => {
         if (team.name === bidder) {
           return {
             ...team,
             budget: team.budget - currentBid,
-            players: [...team.players, soldPlayer]
+            players: [...team.players, soldPlayer],
           };
         }
         return team;
@@ -339,7 +422,7 @@ export default function ValorantAuction() {
     if (currentPlayerIndex < players.length) {
       const currentP = players[currentPlayerIndex];
       const updatedUnsold = [...unsoldPlayers, currentP];
-      
+
       setUnsoldPlayers(updatedUnsold);
       setTimerActive(false);
       setLastBidTime(null);
@@ -349,7 +432,11 @@ export default function ValorantAuction() {
   };
 
   // 다음 선수로 이동
-  const moveToNextPlayer = async (updatedPlayers: any[], updatedTeams: any[], updatedUnsold: any[] = unsoldPlayers) => {
+  const moveToNextPlayer = async (
+    updatedPlayers: Player[],
+    updatedTeams: Team[],
+    updatedUnsold: Player[] = unsoldPlayers
+  ) => {
     if (currentPlayerIndex < players.length - 1) {
       const newIndex = currentPlayerIndex + 1;
       setCurrentPlayerIndex(newIndex);
@@ -359,15 +446,15 @@ export default function ValorantAuction() {
       setPlayers(updatedPlayers);
       setTeams(updatedTeams);
       setUnsoldPlayers(updatedUnsold);
-      await saveData({ 
-        players: updatedPlayers, 
-        teams: updatedTeams, 
+      await saveData({
+        players: updatedPlayers,
+        teams: updatedTeams,
         currentPlayerIndex: newIndex,
         currentBid: 0,
         bidder: '',
         timerActive: false,
         lastBidTime: null,
-        unsoldPlayers: updatedUnsold
+        unsoldPlayers: updatedUnsold,
       });
     } else {
       if (updatedUnsold.length > 0 && !isResale) {
@@ -377,18 +464,22 @@ export default function ValorantAuction() {
         setPlayers(updatedPlayers);
         setTeams(updatedTeams);
         setUnsoldPlayers(updatedUnsold);
-        await saveData({ 
-          players: updatedPlayers, 
-          teams: updatedTeams, 
+        await saveData({
+          players: updatedPlayers,
+          teams: updatedTeams,
           phase: 'complete',
-          unsoldPlayers: updatedUnsold
+          unsoldPlayers: updatedUnsold,
         });
       }
     }
   };
 
   // 재경매 시작
-  const startResale = async (updatedPlayers: any[], updatedTeams: any[], updatedUnsold: any[]) => {
+  const startResale = async (
+    updatedPlayers: Player[],
+    updatedTeams: Team[],
+    updatedUnsold: Player[]
+  ) => {
     setPlayers(updatedUnsold);
     setTeams(updatedTeams);
     setCurrentPlayerIndex(0);
@@ -407,7 +498,7 @@ export default function ValorantAuction() {
       timerActive: false,
       lastBidTime: null,
       isResale: true,
-      unsoldPlayers: []
+      unsoldPlayers: [],
     });
   };
 
@@ -433,7 +524,7 @@ export default function ValorantAuction() {
       timerActive: false,
       lastBidTime: null,
       unsoldPlayers: [],
-      isResale: false
+      isResale: false,
     });
   };
 
@@ -456,7 +547,7 @@ export default function ValorantAuction() {
             발로란트 팀 경매
           </h1>
           <p className="text-gray-400">실시간 멀티플레이어 경매 시스템</p>
-          
+
           {/* 자동 새로고침 토글 */}
           <div className="mt-4 flex items-center justify-center gap-2 flex-wrap">
             <button
@@ -465,7 +556,10 @@ export default function ValorantAuction() {
                 autoRefresh ? 'bg-green-600' : 'bg-gray-600'
               }`}
             >
-              <RefreshCw size={16} className={autoRefresh ? 'animate-spin' : ''} />
+              <RefreshCw
+                size={16}
+                className={autoRefresh ? 'animate-spin' : ''}
+              />
               {autoRefresh ? '실시간 동기화 ON' : '실시간 동기화 OFF'}
             </button>
             <button
@@ -491,7 +585,10 @@ export default function ValorantAuction() {
           <div className="space-y-6">
             <div className="bg-yellow-900 border-2 border-yellow-600 rounded-lg p-4 text-center">
               <p className="font-bold">💡 여러 명이 함께 사용하세요!</p>
-              <p className="text-sm mt-2">이 페이지 URL을 친구들과 공유하면 실시간으로 함께 경매에 참여할 수 있습니다.</p>
+              <p className="text-sm mt-2">
+                이 페이지 URL을 친구들과 공유하면 실시간으로 함께 경매에 참여할
+                수 있습니다.
+              </p>
             </div>
 
             {/* 예산 설정 */}
@@ -515,8 +612,7 @@ export default function ValorantAuction() {
             {/* 팀 추가 */}
             <div className="bg-gray-800 rounded-lg p-6">
               <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-                <Users className="text-blue-400" />
-                팀 등록
+                <Users className="text-blue-400" />팀 등록
               </h2>
               <div className="flex gap-2 mb-4">
                 <input
@@ -536,11 +632,16 @@ export default function ValorantAuction() {
                 </button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {teams.map((team: any, idx: number) => (
-                  <div key={idx} className="bg-gray-700 p-3 rounded flex justify-between items-center">
+                {teams.map((team, idx) => (
+                  <div
+                    key={idx}
+                    className="bg-gray-700 p-3 rounded flex justify-between items-center"
+                  >
                     <div>
                       <span className="font-semibold">{team.name}</span>
-                      <span className="text-green-400 ml-3">{team.budget.toLocaleString()}원</span>
+                      <span className="text-green-400 ml-3">
+                        {team.budget.toLocaleString()}원
+                      </span>
                     </div>
                     <button
                       onClick={() => removeTeam(idx)}
@@ -622,18 +723,23 @@ export default function ValorantAuction() {
                 </button>
               </div>
               <div className="space-y-3">
-                {players.map((player: any, idx: number) => (
+                {players.map((player, idx) => (
                   <div key={idx} className="bg-gray-700 p-4 rounded">
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-bold text-lg">{idx + 1}.</span>
-                          <span className="font-bold text-lg">{player.name}</span>
-                          <span className="text-sm bg-blue-600 px-2 py-1 rounded">{player.tier}</span>
+                          <span className="font-bold text-lg">
+                            {player.name}
+                          </span>
+                          <span className="text-sm bg-blue-600 px-2 py-1 rounded">
+                            {player.tier}
+                          </span>
                         </div>
                         {player.agents && player.agents.length > 0 && (
                           <div className="text-sm text-gray-300 mb-1">
-                            <span className="text-gray-400">잘하는 요원:</span> {player.agents.join(', ')}
+                            <span className="text-gray-400">잘하는 요원:</span>{' '}
+                            {player.agents.join(', ')}
                           </div>
                         )}
                         {player.comment && (
@@ -698,7 +804,9 @@ export default function ValorantAuction() {
             <div className="bg-gradient-to-r from-red-600 to-red-800 rounded-lg p-8 text-center">
               <div className="text-sm text-gray-300 mb-2">경매 중인 선수</div>
               <h2 className="text-4xl font-bold mb-2">{currentPlayer.name}</h2>
-              <div className="text-xl text-yellow-300 mb-3">{currentPlayer.tier}</div>
+              <div className="text-xl text-yellow-300 mb-3">
+                {currentPlayer.tier}
+              </div>
               {currentPlayer.agents && currentPlayer.agents.length > 0 && (
                 <div className="text-lg text-gray-200 mb-2">
                   🎯 {currentPlayer.agents.join(' • ')}
@@ -715,8 +823,21 @@ export default function ValorantAuction() {
             {timerActive ? (
               <div className="bg-gray-800 rounded-lg p-6 text-center">
                 <div className="flex items-center justify-center gap-3 mb-2">
-                  <Clock className={timeLeft <= 5 ? 'text-red-400 animate-pulse' : 'text-blue-400'} size={32} />
-                  <div className={`text-6xl font-bold ${timeLeft <= 5 ? 'text-red-400 animate-pulse' : 'text-blue-400'}`}>
+                  <Clock
+                    className={
+                      timeLeft <= 5
+                        ? 'text-red-400 animate-pulse'
+                        : 'text-blue-400'
+                    }
+                    size={32}
+                  />
+                  <div
+                    className={`text-6xl font-bold ${
+                      timeLeft <= 5
+                        ? 'text-red-400 animate-pulse'
+                        : 'text-blue-400'
+                    }`}
+                  >
                     {timeLeft}초
                   </div>
                 </div>
@@ -731,7 +852,9 @@ export default function ValorantAuction() {
                   <Gavel size={32} />
                   경매 시작
                 </button>
-                <div className="text-sm text-gray-400 mt-3">버튼을 눌러 경매를 시작하세요</div>
+                <div className="text-sm text-gray-400 mt-3">
+                  버튼을 눌러 경매를 시작하세요
+                </div>
               </div>
             )}
 
@@ -739,20 +862,26 @@ export default function ValorantAuction() {
             <div className="bg-gray-800 rounded-lg p-6 text-center">
               <div className="text-sm text-gray-400 mb-2">현재 입찰가</div>
               <div className="text-5xl font-bold text-green-400 mb-2">
-                {currentBid === 0 ? '입찰 전' : `${currentBid.toLocaleString()}원`}
+                {currentBid === 0
+                  ? '입찰 전'
+                  : `${currentBid.toLocaleString()}원`}
               </div>
               {bidder ? (
-                <div className="text-xl text-blue-300">최고 입찰자: {bidder}</div>
+                <div className="text-xl text-blue-300">
+                  최고 입찰자: {bidder}
+                </div>
               ) : (
                 <div className="text-xl text-gray-500">
-                  {timerActive ? '입찰을 기다리는 중...' : '경매 시작 버튼을 눌러주세요'}
+                  {timerActive
+                    ? '입찰을 기다리는 중...'
+                    : '경매 시작 버튼을 눌러주세요'}
                 </div>
               )}
             </div>
 
             {/* 팀별 입찰 버튼 */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {teams.map((team: any, idx: number) => (
+              {teams.map((team, idx) => (
                 <div key={idx} className="bg-gray-800 rounded-lg p-4">
                   <div className="font-bold text-lg mb-2">{team.name}</div>
                   <div className="text-sm text-gray-400 mb-3">
@@ -761,21 +890,27 @@ export default function ValorantAuction() {
                   <div className="grid grid-cols-3 gap-2 mb-3">
                     <button
                       onClick={() => placeBid(team.name, 100)}
-                      disabled={!timerActive || team.budget < 100 || 100 <= currentBid}
+                      disabled={
+                        !timerActive || team.budget < 100 || 100 <= currentBid
+                      }
                       className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed px-3 py-2 rounded text-sm"
                     >
                       100원
                     </button>
                     <button
                       onClick={() => placeBid(team.name, 500)}
-                      disabled={!timerActive || team.budget < 500 || 500 <= currentBid}
+                      disabled={
+                        !timerActive || team.budget < 500 || 500 <= currentBid
+                      }
                       className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed px-3 py-2 rounded text-sm"
                     >
                       500원
                     </button>
                     <button
                       onClick={() => placeBid(team.name, 1000)}
-                      disabled={!timerActive || team.budget < 1000 || 1000 <= currentBid}
+                      disabled={
+                        !timerActive || team.budget < 1000 || 1000 <= currentBid
+                      }
                       className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed px-3 py-2 rounded text-sm"
                     >
                       1000원
@@ -785,15 +920,27 @@ export default function ValorantAuction() {
                     <input
                       type="number"
                       value={customBidAmount[team.name] || ''}
-                      onChange={(e) => setCustomBidAmount({ ...customBidAmount, [team.name]: e.target.value })}
-                      onKeyPress={(e) => e.key === 'Enter' && placeCustomBid(team.name)}
+                      onChange={(e) =>
+                        setCustomBidAmount({
+                          ...customBidAmount,
+                          [team.name]: e.target.value,
+                        })
+                      }
+                      onKeyPress={(e) =>
+                        e.key === 'Enter' && placeCustomBid(team.name)
+                      }
                       placeholder="직접 입력"
                       disabled={!timerActive}
                       className="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm disabled:opacity-50"
                     />
                     <button
                       onClick={() => placeCustomBid(team.name)}
-                      disabled={!timerActive || !customBidAmount[team.name] || team.budget < Number(customBidAmount[team.name]) || Number(customBidAmount[team.name]) <= currentBid}
+                      disabled={
+                        !timerActive ||
+                        !customBidAmount[team.name] ||
+                        team.budget < Number(customBidAmount[team.name]) ||
+                        Number(customBidAmount[team.name]) <= currentBid
+                      }
                       className="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed px-4 py-2 rounded text-sm font-bold"
                     >
                       입찰
@@ -825,11 +972,12 @@ export default function ValorantAuction() {
               <p className="text-xl">최종 팀 구성을 확인하세요</p>
             </div>
 
-            {teams.map((team: any, idx: number) => {
-              const uniquePlayers = team.players.filter((player: any, index: number, self: any[]) =>
-                index === self.findIndex((p: any) => p.name === player.name)
+            {teams.map((team, idx) => {
+              const uniquePlayers = team.players.filter(
+                (player, index, self) =>
+                  index === self.findIndex((p) => p.name === player.name)
               );
-              
+
               return (
                 <div key={idx} className="bg-gray-800 rounded-lg p-6">
                   <div className="flex justify-between items-center mb-4">
@@ -843,13 +991,20 @@ export default function ValorantAuction() {
                   </div>
                   <div className="space-y-2">
                     {uniquePlayers.length === 0 ? (
-                      <div className="text-gray-500 text-center py-4">선수 없음</div>
+                      <div className="text-gray-500 text-center py-4">
+                        선수 없음
+                      </div>
                     ) : (
-                      uniquePlayers.map((player: any, pIdx: number) => (
-                        <div key={pIdx} className="bg-gray-700 p-3 rounded flex justify-between items-center">
+                      uniquePlayers.map((player, pIdx) => (
+                        <div
+                          key={pIdx}
+                          className="bg-gray-700 p-3 rounded flex justify-between items-center"
+                        >
                           <div>
                             <div className="font-semibold">{player.name}</div>
-                            <div className="text-sm text-gray-400">{player.tier}</div>
+                            <div className="text-sm text-gray-400">
+                              {player.tier}
+                            </div>
                           </div>
                           <div className="text-yellow-400 font-bold">
                             {player.price.toLocaleString()}원
@@ -864,9 +1019,11 @@ export default function ValorantAuction() {
 
             {unsoldPlayers.length > 0 && (
               <div className="bg-gray-800 rounded-lg p-6">
-                <h3 className="text-2xl font-bold mb-4 text-orange-400">최종 유찰 선수</h3>
+                <h3 className="text-2xl font-bold mb-4 text-orange-400">
+                  최종 유찰 선수
+                </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {unsoldPlayers.map((player: any, idx: number) => (
+                  {unsoldPlayers.map((player, idx) => (
                     <div key={idx} className="bg-gray-700 p-3 rounded">
                       <div className="font-semibold">{player.name}</div>
                       <div className="text-sm text-gray-400">{player.tier}</div>
@@ -888,4 +1045,3 @@ export default function ValorantAuction() {
     </div>
   );
 }
-
