@@ -427,7 +427,7 @@ export default function ValorantAuction() {
     const amount = customBidAmount[teamName];
     if (amount) {
       await placeBid(teamName, Number(amount));
-      setCustomBidAmount({ ...customBidAmount, [team.name]: '' });
+      setCustomBidAmount({ ...customBidAmount, [teamName]: '' });
     }
   };
 
