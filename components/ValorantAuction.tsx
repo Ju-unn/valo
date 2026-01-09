@@ -175,7 +175,7 @@ export default function ValorantAuction() {
   useEffect(() => {
     loadData();
 
-    // Realtime 구독 설정
+    // 🎯 Realtime 구독 설정 - 모든 사용자가 동일한 화면을 보도록 자동 동기화
     const channel = supabase
       .channel('auction-state-changes')
       .on(
@@ -194,6 +194,7 @@ export default function ValorantAuction() {
                 ? JSON.parse(newRecord.value)
                 : newRecord.value;
 
+            // 🚀 phase가 'auction'으로 변경되면 모든 접속자의 화면이 자동으로 경매 페이지로 전환됨
             setPhase(parsedData.phase || 'setup');
             setPlayers(parsedData.players || []);
             setTeams(parsedData.teams || []);
@@ -327,20 +328,26 @@ export default function ValorantAuction() {
     await saveData({ players: updatedPlayers });
   };
 
-  // 경매 시작
+  // 경매 시작 (🎯 모든 접속자의 화면이 자동으로 경매 페이지로 전환됨)
   const startAuction = async () => {
-    if (teams.length > 0 && players.length > 0) {
-      setPhase('auction');
-      setCurrentBid(0);
-      setTimerActive(false);
-      setLastBidTime(null);
-      await saveData({
-        phase: 'auction',
-        currentBid: 0,
-        timerActive: false,
-        lastBidTime: null,
-      });
+    if (teams.length === 0 || players.length === 0) {
+      alert('최소 1개의 팀과 선수가 필요합니다.');
+      return;
     }
+
+    // 로컬 상태 업데이트
+    setPhase('auction');
+    setCurrentBid(0);
+    setTimerActive(false);
+    setLastBidTime(null);
+
+    // 🚀 Supabase에 저장 → Realtime 구독으로 모든 사용자에게 즉시 전파
+    await saveData({
+      phase: 'auction',
+      currentBid: 0,
+      timerActive: false,
+      lastBidTime: null,
+    });
   };
 
   // 선수별 경매 시작
@@ -552,15 +559,17 @@ export default function ValorantAuction() {
           <div className="mt-4 flex items-center justify-center gap-2 flex-wrap">
             <button
               onClick={() => setAutoRefresh(!autoRefresh)}
-              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-                autoRefresh ? 'bg-green-600' : 'bg-gray-600'
+              className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-all ${
+                autoRefresh
+                  ? 'bg-green-600 hover:bg-green-700'
+                  : 'bg-gray-600 hover:bg-gray-700'
               }`}
             >
               <RefreshCw
                 size={16}
                 className={autoRefresh ? 'animate-spin' : ''}
               />
-              {autoRefresh ? '실시간 동기화 ON' : '실시간 동기화 OFF'}
+              {autoRefresh ? '🟢 실시간 동기화 ON' : '🔴 실시간 동기화 OFF'}
             </button>
             <button
               onClick={loadData}
@@ -578,16 +587,32 @@ export default function ValorantAuction() {
               </button>
             )}
           </div>
+
+          {/* 실시간 동기화 안내 */}
+          {autoRefresh && (
+            <div className="mt-3 text-sm text-green-400 animate-pulse">
+              ✨ 모든 사용자가 같은 화면을 실시간으로 보고 있습니다
+            </div>
+          )}
         </div>
 
         {/* 설정 단계 */}
         {phase === 'setup' && (
           <div className="space-y-6">
             <div className="bg-yellow-900 border-2 border-yellow-600 rounded-lg p-4 text-center">
-              <p className="font-bold">💡 여러 명이 함께 사용하세요!</p>
+              <p className="font-bold text-lg mb-2">
+                💡 여러 명이 함께 사용하세요!
+              </p>
               <p className="text-sm mt-2">
                 이 페이지 URL을 친구들과 공유하면 실시간으로 함께 경매에 참여할
                 수 있습니다.
+              </p>
+              <p className="text-sm mt-2 text-yellow-300">
+                🎯 경매 진행자가 "경매 시작" 버튼을 누르면,{' '}
+                <strong>
+                  모든 접속자의 화면이 자동으로 경매 페이지로 전환
+                </strong>
+                됩니다!
               </p>
             </div>
 
@@ -782,11 +807,18 @@ export default function ValorantAuction() {
             <button
               onClick={startAuction}
               disabled={teams.length === 0 || players.length === 0}
-              className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed px-8 py-4 rounded-lg text-xl font-bold flex items-center justify-center gap-3"
+              className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed px-8 py-4 rounded-lg text-xl font-bold flex items-center justify-center gap-3 transition-all hover:scale-105"
             >
               <Gavel size={24} />
-              경매 시작
+              🚀 경매 시작 (모든 사용자 화면 전환)
             </button>
+            {teams.length > 0 && players.length > 0 && (
+              <p className="text-center text-sm text-gray-400 -mt-4">
+                버튼을 누르면 이 URL에 접속한{' '}
+                <strong>모든 사람의 화면이 경매 페이지로 자동 전환</strong>
+                됩니다
+              </p>
+            )}
           </div>
         )}
 
