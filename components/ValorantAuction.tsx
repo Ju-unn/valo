@@ -116,10 +116,11 @@ export default function ValorantAuction() {
           filter: `key=eq.${AUCTION_STATE_KEY}`
         },
         (payload) => {
-          if (payload.new && payload.new.value) {
-            const parsedData = typeof payload.new.value === 'string' 
-              ? JSON.parse(payload.new.value) 
-              : payload.new.value;
+          const newRecord = payload.new as { value?: any } | null;
+          if (newRecord && newRecord.value) {
+            const parsedData = typeof newRecord.value === 'string' 
+              ? JSON.parse(newRecord.value) 
+              : newRecord.value;
             
             setPhase(parsedData.phase || 'setup');
             setPlayers(parsedData.players || []);
