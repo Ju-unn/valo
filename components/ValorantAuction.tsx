@@ -10,6 +10,8 @@ import {
   Trash2,
   RefreshCw,
   Clock,
+  Wifi,
+  WifiOff,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
@@ -60,9 +62,14 @@ export default function ValorantAuction() {
   const [unsoldPlayers, setUnsoldPlayers] = useState<Player[]>([]);
   const [isResale, setIsResale] = useState<boolean>(false);
 
+  // 🔍 디버깅용 상태 추가
+  const [realtimeStatus, setRealtimeStatus] = useState<string>('연결 중...');
+  const [lastUpdate, setLastUpdate] = useState<string>('없음');
+
   // Supabase에서 데이터 로드
   const loadData = useCallback(async () => {
     try {
+      console.log('📥 데이터 로드 시도...');
       const { data, error } = await supabase
         .from('auction_state')
         .select('*')
@@ -70,14 +77,17 @@ export default function ValorantAuction() {
         .single();
 
       if (error && error.code !== 'PGRST116') {
-        // PGRST116은 데이터 없음 에러
-        console.error('데이터 로드 에러:', error);
+        console.error('❌ 데이터 로드 에러:', error);
         return;
       }
 
       if (data && data.value) {
+        console.log('✅ 데이터 로드 성공:', data.value);
         const parsedData =
           typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+
+        console.log('📊 현재 phase:', parsedData.phase);
+
         setPhase(parsedData.phase || 'setup');
         setPlayers(parsedData.players || []);
         setTeams(parsedData.teams || []);
@@ -89,9 +99,10 @@ export default function ValorantAuction() {
         setTimerActive(parsedData.timerActive || false);
         setUnsoldPlayers(parsedData.unsoldPlayers || []);
         setIsResale(parsedData.isResale || false);
+        setLastUpdate(new Date().toLocaleTimeString());
       }
     } catch (error) {
-      console.log('첫 실행 또는 데이터 없음:', error);
+      console.log('⚠️ 첫 실행 또는 데이터 없음:', error);
     } finally {
       setLoading(false);
     }
@@ -138,6 +149,8 @@ export default function ValorantAuction() {
               : isResale,
         };
 
+        console.log('💾 데이터 저장 시도:', data);
+
         const { error } = await supabase.from('auction_state').upsert(
           {
             key: AUCTION_STATE_KEY,
@@ -150,10 +163,12 @@ export default function ValorantAuction() {
         );
 
         if (error) {
-          console.error('저장 실패:', error);
+          console.error('❌ 저장 실패:', error);
+        } else {
+          console.log('✅ 저장 성공!');
         }
       } catch (error) {
-        console.error('저장 실패:', error);
+        console.error('❌ 저장 실패:', error);
       }
     },
     [
@@ -175,6 +190,8 @@ export default function ValorantAuction() {
   useEffect(() => {
     loadData();
 
+    console.log('🔌 Realtime 구독 시작...');
+
     // 🎯 Realtime 구독 설정 - 모든 사용자가 동일한 화면을 보도록 자동 동기화
     const channel = supabase
       .channel('auction-state-changes')
@@ -187,12 +204,16 @@ export default function ValorantAuction() {
           filter: `key=eq.${AUCTION_STATE_KEY}`,
         },
         (payload) => {
+          console.log('🔔 Realtime 이벤트 수신:', payload);
+
           const newRecord = payload.new as { value?: any } | null;
           if (newRecord && newRecord.value) {
             const parsedData =
               typeof newRecord.value === 'string'
                 ? JSON.parse(newRecord.value)
                 : newRecord.value;
+
+            console.log('🚀 Phase 변경 감지:', parsedData.phase);
 
             // 🚀 phase가 'auction'으로 변경되면 모든 접속자의 화면이 자동으로 경매 페이지로 전환됨
             setPhase(parsedData.phase || 'setup');
@@ -206,12 +227,26 @@ export default function ValorantAuction() {
             setTimerActive(parsedData.timerActive || false);
             setUnsoldPlayers(parsedData.unsoldPlayers || []);
             setIsResale(parsedData.isResale || false);
+            setLastUpdate(new Date().toLocaleTimeString());
+            setRealtimeStatus('✅ 연결됨');
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 Realtime 상태:', status);
+        if (status === 'SUBSCRIBED') {
+          setRealtimeStatus('✅ 연결됨');
+        } else if (status === 'CHANNEL_ERROR') {
+          setRealtimeStatus('❌ 연결 실패');
+        } else if (status === 'TIMED_OUT') {
+          setRealtimeStatus('⏱️ 타임아웃');
+        } else {
+          setRealtimeStatus(`🔄 ${status}`);
+        }
+      });
 
     return () => {
+      console.log('🔌 Realtime 구독 해제');
       supabase.removeChannel(channel);
     };
   }, [loadData]);
@@ -335,6 +370,8 @@ export default function ValorantAuction() {
       return;
     }
 
+    console.log('🚀 경매 시작 버튼 클릭!');
+
     // 로컬 상태 업데이트
     setPhase('auction');
     setCurrentBid(0);
@@ -348,6 +385,8 @@ export default function ValorantAuction() {
       timerActive: false,
       lastBidTime: null,
     });
+
+    console.log('✅ 경매 시작 데이터 저장 완료');
   };
 
   // 선수별 경매 시작
@@ -388,7 +427,7 @@ export default function ValorantAuction() {
     const amount = customBidAmount[teamName];
     if (amount) {
       await placeBid(teamName, Number(amount));
-      setCustomBidAmount({ ...customBidAmount, [teamName]: '' });
+      setCustomBidAmount({ ...customBidAmount, [team.name]: '' });
     }
   };
 
@@ -555,6 +594,24 @@ export default function ValorantAuction() {
           </h1>
           <p className="text-gray-400">실시간 멀티플레이어 경매 시스템</p>
 
+          {/* 🔍 디버깅 정보 표시 */}
+          <div className="mt-3 bg-gray-800 rounded-lg p-3 inline-block">
+            <div className="flex items-center gap-3 text-sm">
+              {realtimeStatus.includes('✅') ? (
+                <Wifi className="text-green-400" size={16} />
+              ) : (
+                <WifiOff className="text-red-400" size={16} />
+              )}
+              <span>{realtimeStatus}</span>
+              <span className="text-gray-500">|</span>
+              <span className="text-gray-400">
+                마지막 업데이트: {lastUpdate}
+              </span>
+              <span className="text-gray-500">|</span>
+              <span className="text-yellow-400">현재 Phase: {phase}</span>
+            </div>
+          </div>
+
           {/* 자동 새로고침 토글 */}
           <div className="mt-4 flex items-center justify-center gap-2 flex-wrap">
             <button
@@ -589,7 +646,7 @@ export default function ValorantAuction() {
           </div>
 
           {/* 실시간 동기화 안내 */}
-          {autoRefresh && (
+          {autoRefresh && realtimeStatus.includes('✅') && (
             <div className="mt-3 text-sm text-green-400 animate-pulse">
               ✨ 모든 사용자가 같은 화면을 실시간으로 보고 있습니다
             </div>
